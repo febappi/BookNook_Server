@@ -11,4 +11,11 @@ export const connectToMongoDB = async () => {
     console.log('You successfully connected to MongoDB!')
 }
 
+export const createIndexes = async () => {
+    await booksCollection.createIndex({ createdAt: -1 })
+    await booksCollection.createIndex({ addedByEmail: 1 })
+    await borrowsCollection.createIndex({ userEmail: 1 })
+    await borrowsCollection.createIndex({ bookId: 1, userEmail: 1 }, { unique: true })
+}
+
 export default client
