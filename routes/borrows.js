@@ -62,4 +62,45 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(201).send({ message: 'Book borrowed successfully', borrow: newBorrow })
 })
 
+router.get('/', verifyToken, async (req, res) => {
+    const borrows = await borrowsCollection
+        .find({ userEmail: req.user.email })
+        .sort({ borrowDate: -1 })
+        .toArray()
+    res.send(borrows)
+})
+
+router.delete('/:id', verifyToken, async (req, res) => {
+    const { id } = req.params
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: 'Invalid borrow id' })
+    }
+
+    let returnedBorrow = null
+    const session = client.startSession()
+    try {
+        await session.withTransaction(async () => {
+            returnedBorrow = await borrowsCollection.findOneAndDelete(
+                { _id: new ObjectId(id), userEmail: req.user.email },
+                { session }
+            )
+            if (!returnedBorrow) {
+                return
+            }
+            await booksCollection.updateOne(
+                { _id: returnedBorrow.bookId },
+                { $inc: { availableCopies: 1 } },
+                { session }
+            )
+        })
+    } finally {
+        await session.endSession()
+    }
+
+    if (!returnedBorrow) {
+        return res.status(404).send({ message: 'Borrow record not found or already returned' })
+    }
+    res.send({ message: 'Book returned successfully' })
+})
+
 export default router
