@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { connectToMongoDB, createIndexes } from './db.js'
+import booksRouter from './routes/books.js'
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -12,6 +13,8 @@ app.use(express.json())
 app.get('/', (req, res) => {
     res.send({ message: 'Server is Running Fine' })
 })
+
+app.use('/books', booksRouter)
 
 app.use((req, res) => {
     res.status(404).send({ message: 'Route not found' })
