@@ -33,10 +33,15 @@ app.use((error, req, res, next) => {
 try {
     await connectToMongoDB()
     await createIndexes()
-    app.listen(PORT, () => {
-        console.log(`Server Is Running On PORT ${PORT}`)
-    })
 } catch (error) {
     console.error('MongoDB connection failed:', error.message)
     process.exit(1)
 }
+
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server Is Running On PORT ${PORT}`)
+    })
+}
+
+export default app
