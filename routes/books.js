@@ -120,4 +120,77 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(201).send({ message: 'Book added successfully', book: newBook })
 })
 
+router.patch('/:id', verifyToken, async (req, res) => {
+    const { id } = req.params
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: 'Invalid book id' })
+    }
+
+    const errorMessage = validateBook(req.body)
+    if (errorMessage) {
+        return res.status(400).send({ message: errorMessage })
+    }
+
+    const book = await booksCollection.findOne({ _id: new ObjectId(id) })
+    if (!book) {
+        return res.status(404).send({ message: 'Book not found' })
+    }
+    if (book.addedByEmail !== req.user.email) {
+        return res.status(403).send({ message: 'You can only edit your own books' })
+    }
+
+    const newTotalCopies = req.body.totalCopies
+    const borrowedCopies = book.totalCopies - book.availableCopies
+    if (newTotalCopies < borrowedCopies) {
+        return res.status(400).send({
+            message: `${borrowedCopies} copies are borrowed right now, so total copies cannot be less than ${borrowedCopies}`,
+        })
+    }
+
+    const copiesDifference = newTotalCopies - book.totalCopies
+    const result = await booksCollection.updateOne(
+        {
+            _id: book._id,
+            addedByEmail: req.user.email,
+            totalCopies: book.totalCopies,
+            availableCopies: { $gte: -copiesDifference },
+        },
+        {
+            $set: { ...getBookFields(req.body), totalCopies: newTotalCopies },
+            $inc: { availableCopies: copiesDifference },
+        }
+    )
+
+    if (result.matchedCount === 0) {
+        return res.status(409).send({ message: 'This book was just borrowed or changed. Please try again.' })
+    }
+    res.send({ message: 'Book updated successfully' })
+})
+
+router.delete('/:id', verifyToken, async (req, res) => {
+    const { id } = req.params
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: 'Invalid book id' })
+    }
+
+    const book = await booksCollection.findOne({ _id: new ObjectId(id) })
+    if (!book) {
+        return res.status(404).send({ message: 'Book not found' })
+    }
+    if (book.addedByEmail !== req.user.email) {
+        return res.status(403).send({ message: 'You can only delete your own books' })
+    }
+
+    const result = await booksCollection.deleteOne({
+        _id: book._id,
+        addedByEmail: req.user.email,
+        $expr: { $eq: ['$availableCopies', '$totalCopies'] },
+    })
+
+    if (result.deletedCount === 0) {
+        return res.status(409).send({ message: 'This book is borrowed right now. You can delete it after all copies are returned.' })
+    }
+    res.send({ message: 'Book deleted successfully' })
+})
+
 export default router
