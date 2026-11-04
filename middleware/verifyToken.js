@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { CLIENT_URL } from '../config.js'
 
-const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`))
+const JWKS = createRemoteJWKSet(new URL(`${CLIENT_URL}/api/auth/jwks`))
 
 export const getUserFromToken = async (req) => {
     const authHeader = req.headers.authorization
@@ -11,8 +12,8 @@ export const getUserFromToken = async (req) => {
     const token = authHeader.split(' ')[1]
     try {
         const { payload } = await jwtVerify(token, JWKS, {
-            issuer: process.env.CLIENT_URL,
-            audience: process.env.CLIENT_URL,
+            issuer: CLIENT_URL,
+            audience: CLIENT_URL,
         })
         if (!payload.email) {
             return null
